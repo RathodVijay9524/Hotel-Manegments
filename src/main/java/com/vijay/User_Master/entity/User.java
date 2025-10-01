@@ -26,7 +26,7 @@ public class User  {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; // This ID is used as business_id for ROLE_OWNER
     private String name;
     @Column(nullable = false, unique = true)
     private String username;
@@ -40,6 +40,25 @@ public class User  {
     private String imageName;
     private boolean isDeleted;
     private LocalDateTime deletedOn;
+    
+    // Business/Hotel information fields (for ROLE_OWNER)
+    @Column(length = 200)
+    private String businessName; // Hotel/Restaurant name
+    
+    @Column(length = 500)
+    private String businessAddress;
+    
+    @Column(length = 15)
+    private String businessPhone;
+    
+    @Column(length = 100)
+    private String businessEmail;
+    
+    @Column(length = 50)
+    private String businessType; // HOTEL, RESTAURANT, BOTH
+    
+    @Column(length = 1000)
+    private String businessDescription;
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "users_roles",

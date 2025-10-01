@@ -1,5 +1,6 @@
 package com.vijay.User_Master.service.hotel;
 
+import com.vijay.User_Master.Helper.BusinessContextFilter;
 import com.vijay.User_Master.dto.hotel.CreateReservationRequest;
 import com.vijay.User_Master.dto.hotel.TableReservationDTO;
 import com.vijay.User_Master.entity.hotel.RestaurantTable;
@@ -23,6 +24,7 @@ public class ReservationService {
     
     private final TableReservationRepository reservationRepository;
     private final RestaurantTableRepository tableRepository;
+    private final BusinessContextFilter businessContext;
     
     @Transactional
     public TableReservationDTO createReservation(CreateReservationRequest request) {
@@ -49,7 +51,10 @@ public class ReservationService {
         // Generate reservation number
         String reservationNumber = generateReservationNumber();
         
+        Long businessId = businessContext.getCurrentBusinessId();
+        
         TableReservation reservation = TableReservation.builder()
+                .businessId(businessId)  // Auto-assign business ID
                 .reservationNumber(reservationNumber)
                 .userId(request.getUserId())
                 .customerName(request.getCustomerName())
@@ -143,6 +148,10 @@ public class ReservationService {
     public TableReservationDTO getReservationById(Long id) {
         TableReservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reservation not found"));
+        
+        // Validate business access
+        businessContext.validateBusinessAccess(reservation.getBusinessId());
+        
         return mapToReservationDTO(reservation);
     }
     
@@ -159,7 +168,17 @@ public class ReservationService {
     }
     
     public List<TableReservationDTO> getUpcomingReservations() {
-        return reservationRepository.findUpcomingReservations(LocalDateTime.now()).stream()
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        if (businessId == null) {
+            // Admin sees all
+            return reservationRepository.findUpcomingReservations(LocalDateTime.now()).stream()
+                    .map(this::mapToReservationDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        // Owner/Worker sees only their business
+        return reservationRepository.findUpcomingReservationsByBusinessId(businessId, LocalDateTime.now()).stream()
                 .map(this::mapToReservationDTO)
                 .collect(Collectors.toList());
     }
@@ -174,7 +193,17 @@ public class ReservationService {
     }
     
     public List<TableReservationDTO> getReservationsByStatus(String status) {
-        return reservationRepository.findByStatus(TableReservation.ReservationStatus.valueOf(status)).stream()
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        if (businessId == null) {
+            // Admin sees all
+            return reservationRepository.findByStatus(TableReservation.ReservationStatus.valueOf(status)).stream()
+                    .map(this::mapToReservationDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        // Owner/Worker sees only their business
+        return reservationRepository.findByBusinessIdAndStatus(businessId, TableReservation.ReservationStatus.valueOf(status)).stream()
                 .map(this::mapToReservationDTO)
                 .collect(Collectors.toList());
     }
@@ -189,7 +218,16 @@ public class ReservationService {
     }
     
     public List<RestaurantTable> getAvailableTables(LocalDateTime reservationTime, Integer numberOfGuests, Integer durationMinutes) {
-        List<RestaurantTable> allTables = tableRepository.findByIsAvailableTrue();
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        List<RestaurantTable> allTables;
+        if (businessId == null) {
+            // Admin sees all tables
+            allTables = tableRepository.findByIsAvailableTrue();
+        } else {
+            // Owner/Worker sees only their business tables
+            allTables = tableRepository.findByBusinessIdAndIsAvailableTrue(businessId);
+        }
         
         return allTables.stream()
                 .filter(table -> table.getCapacity() >= numberOfGuests)

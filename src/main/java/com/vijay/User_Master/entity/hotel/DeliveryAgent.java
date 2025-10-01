@@ -12,7 +12,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "hotel_delivery_agents")
+@Table(name = "hotel_delivery_agents", indexes = {
+    @Index(name = "idx_agent_business_id", columnList = "business_id")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,6 +25,9 @@ public class DeliveryAgent {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Column(name = "business_id", nullable = false)
+    private Long businessId; // Hotel/Business owner ID
     
     @Column(nullable = false, length = 100)
     private String name;

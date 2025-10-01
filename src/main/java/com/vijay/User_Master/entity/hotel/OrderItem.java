@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "hotel_order_items")
+@Table(name = "hotel_order_items", indexes = {
+    @Index(name = "idx_order_item_business_id", columnList = "business_id")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -19,6 +21,9 @@ public class OrderItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Column(name = "business_id", nullable = false)
+    private Long businessId; // Hotel/Business owner ID (from Order)
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)

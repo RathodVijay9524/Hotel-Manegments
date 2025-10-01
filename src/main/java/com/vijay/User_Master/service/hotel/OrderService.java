@@ -1,5 +1,6 @@
 package com.vijay.User_Master.service.hotel;
 
+import com.vijay.User_Master.Helper.BusinessContextFilter;
 import com.vijay.User_Master.dto.hotel.CreateOrderRequest;
 import com.vijay.User_Master.dto.hotel.OrderDTO;
 import com.vijay.User_Master.dto.hotel.OrderItemDTO;
@@ -27,10 +28,14 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final MenuItemRepository menuItemRepository;
     private final RestaurantTableRepository tableRepository;
+    private final BusinessContextFilter businessContext;
     
     @Transactional
     public OrderDTO createOrder(CreateOrderRequest request) {
         log.info("Creating new order for user: {}", request.getUserId());
+        
+        // Get business ID from context
+        Long businessId = businessContext.getCurrentBusinessId();
         
         // Generate unique order number
         String orderNumber = generateOrderNumber();
@@ -47,6 +52,7 @@ public class OrderService {
         
         // Create order
         Order order = Order.builder()
+                .businessId(businessId)  // Auto-assign business ID
                 .orderNumber(orderNumber)
                 .userId(request.getUserId())
                 .customerName(request.getCustomerName())
@@ -127,6 +133,10 @@ public class OrderService {
     public OrderDTO getOrderById(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found"));
+        
+        // Validate business access
+        businessContext.validateBusinessAccess(order.getBusinessId());
+        
         return mapToOrderDTO(order);
     }
     
@@ -148,7 +158,17 @@ public class OrderService {
     }
     
     public List<OrderDTO> getOrdersByStatus(String status) {
-        return orderRepository.findByStatus(Order.OrderStatus.valueOf(status)).stream()
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        if (businessId == null) {
+            // Admin sees all
+            return orderRepository.findByStatus(Order.OrderStatus.valueOf(status)).stream()
+                    .map(this::mapToOrderDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        // Owner/Worker sees only their business
+        return orderRepository.findByBusinessIdAndStatus(businessId, Order.OrderStatus.valueOf(status)).stream()
                 .map(this::mapToOrderDTO)
                 .collect(Collectors.toList());
     }
@@ -159,10 +179,23 @@ public class OrderService {
     }
     
     public List<OrderDTO> getActiveOrders() {
-        List<Order> orders = orderRepository.findAll().stream()
-                .filter(o -> !o.getStatus().equals(Order.OrderStatus.COMPLETED) 
-                          && !o.getStatus().equals(Order.OrderStatus.CANCELLED))
-                .collect(Collectors.toList());
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        List<Order> orders;
+        if (businessId == null) {
+            // Admin sees all active orders
+            orders = orderRepository.findAll().stream()
+                    .filter(o -> !o.getStatus().equals(Order.OrderStatus.COMPLETED) 
+                              && !o.getStatus().equals(Order.OrderStatus.CANCELLED))
+                    .collect(Collectors.toList());
+        } else {
+            // Owner/Worker sees only their business's active orders
+            orders = orderRepository.findByBusinessId(businessId).stream()
+                    .filter(o -> !o.getStatus().equals(Order.OrderStatus.COMPLETED) 
+                              && !o.getStatus().equals(Order.OrderStatus.CANCELLED))
+                    .collect(Collectors.toList());
+        }
+        
         return orders.stream().map(this::mapToOrderDTO).collect(Collectors.toList());
     }
     

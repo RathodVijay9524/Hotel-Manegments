@@ -12,7 +12,10 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "hotel_reviews")
+@Table(name = "hotel_reviews", indexes = {
+    @Index(name = "idx_review_business_id", columnList = "business_id"),
+    @Index(name = "idx_review_menu_business", columnList = "menu_item_id,business_id")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,6 +26,9 @@ public class Review {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Column(name = "business_id", nullable = false)
+    private Long businessId; // Hotel/Business owner ID
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "menu_item_id", nullable = false)

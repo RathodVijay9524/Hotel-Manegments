@@ -15,7 +15,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "hotel_orders")
+@Table(name = "hotel_orders", indexes = {
+    @Index(name = "idx_order_business_id", columnList = "business_id"),
+    @Index(name = "idx_order_user_business", columnList = "user_id,business_id")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -26,6 +29,9 @@ public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Column(name = "business_id", nullable = false)
+    private Long businessId; // Hotel/Business owner ID
     
     @Column(nullable = false, unique = true, length = 50)
     private String orderNumber;

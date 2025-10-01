@@ -12,7 +12,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "hotel_payments")
+@Table(name = "hotel_payments", indexes = {
+    @Index(name = "idx_payment_business_id", columnList = "business_id")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -23,6 +25,9 @@ public class Payment {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Column(name = "business_id", nullable = false)
+    private Long businessId; // Hotel/Business owner ID
     
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false, unique = true)

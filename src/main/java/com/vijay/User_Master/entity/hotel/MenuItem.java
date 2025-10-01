@@ -13,7 +13,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "hotel_menu_items")
+@Table(name = "hotel_menu_items", indexes = {
+    @Index(name = "idx_menu_business_id", columnList = "business_id"),
+    @Index(name = "idx_menu_category_business", columnList = "category_id,business_id")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -24,6 +27,9 @@ public class MenuItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    
+    @Column(name = "business_id", nullable = false)
+    private Long businessId; // Hotel/Business owner ID
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id", nullable = false)

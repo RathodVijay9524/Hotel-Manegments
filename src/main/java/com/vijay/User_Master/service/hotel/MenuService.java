@@ -1,5 +1,6 @@
 package com.vijay.User_Master.service.hotel;
 
+import com.vijay.User_Master.Helper.BusinessContextFilter;
 import com.vijay.User_Master.dto.hotel.CategoryDTO;
 import com.vijay.User_Master.dto.hotel.MenuItemDTO;
 import com.vijay.User_Master.entity.hotel.Category;
@@ -23,13 +24,18 @@ public class MenuService {
     
     private final CategoryRepository categoryRepository;
     private final MenuItemRepository menuItemRepository;
+    private final BusinessContextFilter businessContext;
     
     // ==================== CATEGORY OPERATIONS ====================
     
     @Transactional
     public CategoryDTO createCategory(CategoryDTO dto) {
         log.info("Creating new category: {}", dto.getName());
+        
+        Long businessId = businessContext.getCurrentBusinessId();
+        
         Category category = Category.builder()
+                .businessId(businessId)  // Auto-assign business ID
                 .name(dto.getName())
                 .description(dto.getDescription())
                 .imageUrl(dto.getImageUrl())
@@ -58,13 +64,33 @@ public class MenuService {
     }
     
     public List<CategoryDTO> getAllCategories() {
-        return categoryRepository.findAllByOrderByDisplayOrderAsc().stream()
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        if (businessId == null) {
+            // Admin sees all
+            return categoryRepository.findAllByOrderByDisplayOrderAsc().stream()
+                    .map(this::mapToCategoryDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        // Owner/Worker sees only their business
+        return categoryRepository.findByBusinessIdOrderByDisplayOrderAsc(businessId).stream()
                 .map(this::mapToCategoryDTO)
                 .collect(Collectors.toList());
     }
     
     public List<CategoryDTO> getActiveCategories() {
-        return categoryRepository.findByIsActiveTrueOrderByDisplayOrderAsc().stream()
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        if (businessId == null) {
+            // Admin sees all
+            return categoryRepository.findByIsActiveTrueOrderByDisplayOrderAsc().stream()
+                    .map(this::mapToCategoryDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        // Owner/Worker sees only their business
+        return categoryRepository.findByBusinessIdAndIsActiveTrueOrderByDisplayOrderAsc(businessId).stream()
                 .map(this::mapToCategoryDTO)
                 .collect(Collectors.toList());
     }
@@ -86,10 +112,14 @@ public class MenuService {
     @Transactional
     public MenuItemDTO createMenuItem(MenuItemDTO dto) {
         log.info("Creating new menu item: {}", dto.getName());
+        
+        Long businessId = businessContext.getCurrentBusinessId();
+        
         Category category = categoryRepository.findById(dto.getCategoryId())
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + dto.getCategoryId()));
         
         MenuItem menuItem = MenuItem.builder()
+                .businessId(businessId)  // Auto-assign business ID
                 .category(category)
                 .name(dto.getName())
                 .description(dto.getDescription())
@@ -137,19 +167,49 @@ public class MenuService {
     }
     
     public List<MenuItemDTO> getAllMenuItems() {
-        return menuItemRepository.findByIsAvailableTrue().stream()
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        if (businessId == null) {
+            // Admin sees all
+            return menuItemRepository.findByIsAvailableTrue().stream()
+                    .map(this::mapToMenuItemDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        // Owner/Worker sees only their business
+        return menuItemRepository.findByBusinessIdAndIsAvailableTrue(businessId).stream()
                 .map(this::mapToMenuItemDTO)
                 .collect(Collectors.toList());
     }
     
     public List<MenuItemDTO> getMenuItemsByCategory(Long categoryId) {
-        return menuItemRepository.findByCategoryIdAndIsAvailableTrue(categoryId).stream()
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        if (businessId == null) {
+            // Admin sees all
+            return menuItemRepository.findByCategoryIdAndIsAvailableTrue(categoryId).stream()
+                    .map(this::mapToMenuItemDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        // Owner/Worker sees only their business
+        return menuItemRepository.findByBusinessIdAndCategoryIdAndIsAvailableTrue(businessId, categoryId).stream()
                 .map(this::mapToMenuItemDTO)
                 .collect(Collectors.toList());
     }
     
     public List<MenuItemDTO> getFeaturedMenuItems() {
-        return menuItemRepository.findByIsFeaturedTrueAndIsAvailableTrue().stream()
+        Long businessId = businessContext.getCurrentBusinessId();
+        
+        if (businessId == null) {
+            // Admin sees all
+            return menuItemRepository.findByIsFeaturedTrueAndIsAvailableTrue().stream()
+                    .map(this::mapToMenuItemDTO)
+                    .collect(Collectors.toList());
+        }
+        
+        // Owner/Worker sees only their business
+        return menuItemRepository.findByBusinessIdAndIsFeaturedTrueAndIsAvailableTrue(businessId).stream()
                 .map(this::mapToMenuItemDTO)
                 .collect(Collectors.toList());
     }
@@ -168,6 +228,10 @@ public class MenuService {
     public MenuItemDTO getMenuItemById(Long id) {
         MenuItem menuItem = menuItemRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Menu item not found with id: " + id));
+        
+        // Validate business access
+        businessContext.validateBusinessAccess(menuItem.getBusinessId());
+        
         return mapToMenuItemDTO(menuItem);
     }
     
