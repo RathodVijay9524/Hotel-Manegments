@@ -39,6 +39,16 @@ public class UserMasterApplication {
     protected void init() {
 // you are running first time application then this method un-comments this.
         // getCurrentAuditor() and comment another
+        
+        // Skip initialization if data already exists (speeds up startup)
+        try {
+            if (userRepository.count() > 0 || workerRepository.count() > 0) {
+                return; // Data already initialized, skip
+            }
+        } catch (Exception e) {
+            // If check fails, proceed with initialization
+        }
+        
         if (userRepository.count() == 0 && workerRepository.count() == 0) {
 
             // Ensure roles are created and saved before assigning
